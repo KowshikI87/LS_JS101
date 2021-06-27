@@ -18,7 +18,6 @@ Algorithm
 - then we go back up and start another loop that starts
   at the start of remaining text
 */
-
 function longestSentence(text) {
   let remainingText = text.split('');
   let maxSentence = '';
