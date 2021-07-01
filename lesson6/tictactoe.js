@@ -1,17 +1,14 @@
 const readline = require("readline-sync");
-
-//Markers
 const MARKERS = {INITIAL_MARKER : ' ', HUMAN1 : 'X', COMPUTER: 'O'};
+const USERS = {COMPUTER : {NAME : 'COMPUTER', currentTurn : false, turn : 2},
+  PLAYER1 : {NAME : 'HUMAN1', currentTurn : false, turn : 1}};
 
-//user names
-const USER_NAMES = {COMPUTER : 'COMPUTER', PLAYER1 : 'HUMAN1'};
-
-//Scores
+//Scores and Strategy
 let scores = {HUMAN1 : 0, COMPUTER : 0};
 const GAME_TO_WIN = 5;
 
 //Winning Lines and Dangerous Combination
-let winningLines = [
+const WINNING_LINES = [
   [1, 2, 3], [4, 5, 6], [7, 8, 9], // rows
   [1, 4, 7], [2, 5, 8], [3, 6, 9], // columns
   [1, 5, 9], [3, 5, 7]             // diagonals
@@ -24,24 +21,30 @@ function prompt(msg) {
 }
 
 function getDangerousComb() {
-  /*
-  //winning lines keep it as is but move to global
-  //then create dangerousComb by using each of those wining lines
-    //keys are element.join('')
-    //values are 'first + second', 'second + third', 'first + third'
-    //Example: [1,2,3] ---> '123' : ['12', '23', '13']
-    //note how numbers are sorted in ascending order in each combination
-  */
+  //create dangerousComb for each winningLine
+  //values are 'first element + second', 'second + third', 'first + third'
+  //Example: [1,2,3] ---> '123' : ['12', '23', '13']
+  //note how numbers are sorted in ascending order in each combination
   let combination = [[0, 1], [0, 2], [1, 2]];
-  winningLines.forEach((line) => {
+  WINNING_LINES.forEach((line) => {
     DANGEROUS_COMB[line.join('')] = combination.map((comb) => String(line[comb[0]]) + String(line[comb[1]]));
   });
+}
+
+function initializeBoard() {
+  let board = {};
+
+  for (let square = 1; square <= 9; square++) {
+    board[String(square)] = MARKERS['INITIAL_MARKER'];
+  }
+
+  return board;
 }
 
 function displayBoard(board) {
   console.clear();
 
-  console.log(`You are ${MARKERS[USER_NAMES.PLAYER1]}. Computer is ${MARKERS[USER_NAMES.COMPUTER]}`);
+  console.log(`You are ${MARKERS[USERS.PLAYER1.NAME]}. Computer is ${MARKERS[USERS.COMPUTER.NAME]}`);
 
   console.log('');
   console.log('     |     |');
@@ -75,48 +78,47 @@ function joinOr(arr, midItemSep = ',', lastItemExtraSep = 'or') {
   }
 }
 
-function displayScores() {
-  prompt('Current Score is:');
-  Object.keys(scores).forEach((player) => {
-    console.log(`${player} score: ${scores[player]}`);
-  });
-}
-
-function resetScore() {
-  Object.keys(scores).forEach((player) => {
-    scores[player] = 0;
-  });
-}
-
-function addScore(player) {
-  scores[player] += 1;
-}
-
-function isWonMatch() {
-  return Object.keys(scores).some(player => scores[player] === GAME_TO_WIN);
-}
-
-function getMatchWinner() {
-  return Object.keys(scores).find(player => scores[player] === GAME_TO_WIN);
-}
-
-function displayMatchWonMessage(winner) {
-  prompt(`${winner} has won 5 games and thus have won the match!`);
-  prompt('The game is now exiting');
-}
-
-function initializeBoard() {
-  let board = {};
-
-  for (let square = 1; square <= 9; square++) {
-    board[String(square)] = MARKERS['INITIAL_MARKER'];
-  }
-
-  return board;
-}
-
 function emptySquares(board) {
-  return Object.keys(board).filter(key => board[key] === ' ');
+  return Object.keys(board).filter(sq => board[sq] === MARKERS.INITIAL_MARKER);
+}
+
+function getCurrentPlayer() {
+  /*
+  //Get the first player whose currentTurn = true
+  //if can't find such a player then
+    //currentPlayer = player with turn = 1
+  */
+  return Object.keys(USERS).find(user => USERS[user]['currentTurn'] === true) ||
+        Object.keys(USERS).find(user => USERS[user]['turn'] === 1);
+}
+
+function setNextPlayerTurn(currentPlayer) {
+  /*
+  // Get next player
+    //next player is the one whose turn is 1 greater than currentPlayer
+    //or if that does not exist then whose turn is 1
+  //current player's currentTurn = false
+  //set the next player currentTurn = on
+*/
+  let nextTurnPlayer = Object.keys(USERS).find((user) => {
+    return USERS[user]['turn'] === (USERS[currentPlayer]['turn'] + 1);
+  });
+
+  let playerWithTurn1 = Object.keys(USERS).find((user) => {
+    return USERS[user]['turn'] === 1;
+  });
+
+  let nextPlayer = nextTurnPlayer || playerWithTurn1;
+  USERS[currentPlayer]['currentTurn'] = false;
+  USERS[nextPlayer]['currentTurn'] = true;
+}
+
+function chooseSquare(board, currentPlayer) {
+  if (USERS[currentPlayer] === USERS.PLAYER1) {
+    playerChoosesSquare(board);
+  } else {
+    computerChoosesSquare(board);
+  }
 }
 
 function playerChoosesSquare(board) {
@@ -131,7 +133,16 @@ function playerChoosesSquare(board) {
     prompt("Sorry, that's not a valid choice.");
   }
 
-  board[square] = MARKERS[USER_NAMES.PLAYER1];
+  board[square] = MARKERS[USERS.PLAYER1.NAME];
+}
+
+function computerChoosesSquare(board) {
+  let playerSquares = getUserMarkers(board, USERS.PLAYER1.NAME);
+  let computerSquares = getUserMarkers(board, USERS.COMPUTER.NAME);
+  //play offense/defense or play randomly
+  let squareToMark = getCriticalSquare(playerSquares, computerSquares) ||
+                     getRandOpenSquare(board);
+  board[squareToMark] = MARKERS[USERS.COMPUTER.NAME];
 }
 
 function getUserMarkers(board, userName) {
@@ -147,6 +158,52 @@ function getUserMarkers(board, userName) {
   return userMarkers.sort((a, b) => Number(a) - Number(b)).join('');
 }
 
+//get the square we need to mark for making computer win or block player
+//if no such square exist then return undefined
+function getCriticalSquare(playerSquares, computerSquares) {
+  let compWinLine = getCompWinLine(playerSquares, computerSquares);
+  let playerWinLine = getPlayerWinLine(playerSquares, computerSquares);
+
+  if (compWinLine) {
+    return getCompWinSquare(compWinLine, computerSquares);
+  } else if (playerWinLine) {
+    return getCompDefSquare(playerWinLine, playerSquares);
+  } else {
+    return undefined;
+  }
+}
+
+//get the first line in WINNING_LINES in which computer have two markers
+//and player have none
+function getCompWinLine(playerSquares, computerSquares) {
+  let potnWinLine = Object.keys(DANGEROUS_COMB).find((winningLine) => {
+    let curntDangCombs = DANGEROUS_COMB[winningLine];
+    return !(playerSquares.split('').some((square) => winningLine.includes(square))) &&
+             curntDangCombs.some(comb => computerSquares.includes(comb));
+  });
+  return potnWinLine;
+}
+
+//get the first line in WINNING_LINES in which player have two markers
+//and computer has none
+function getPlayerWinLine(playerSquares, computerSquares) {
+  let potnWinLine = Object.keys(DANGEROUS_COMB).find((winningLine) => {
+    let curntDangCombs = DANGEROUS_COMB[winningLine];
+    return !(computerSquares.split('').some((square) => winningLine.includes(square))) &&
+             curntDangCombs.some(comb => playerSquares.includes(comb));
+  });
+  return potnWinLine;
+}
+
+//return the square computer should play to win the game
+function getCompWinSquare(winningLine, computerSquares) {
+  return winningLine.split('').find((square) => !(computerSquares.includes(square)));
+}
+
+function getCompDefSquare(winningLine, playerSquares) {
+  return winningLine.split('').find((square) => !(playerSquares.includes(square)));
+}
+
 function getRandOpenSquare(board) {
   let randomIndex = Math.floor(Math.random() * emptySquares(board).length);
   return emptySquares(board)[randomIndex];
@@ -156,103 +213,70 @@ function boardFull(board) {
   return emptySquares(board).length === 0;
 }
 
-// eslint-disable-next-line max-lines-per-function
-function getCriticalBlock(playersMarkers, computerMarkers, strategy) {
-  //return square to mark for computer/or null otherwise
-  /*
-  //Determine if we need to block user and if yes then which one
-  //itereate over each winning lines keycomb using dangerousComb.keys
-  //we will use find method of array to return the first key for which
-    //at least one dangerousComb.keys is in playerComb
-  //if no dangerousComb is in playerComb then use offensive strategy
-  //else block the user by marking on the square
-    //we have the key containing the winning block
-    //we have the dangerous comb. So we just need to determine the
-    //not present char
-  */
-  let positiveMarkers;
-  let negativeMarkers;
-  if (strategy === 'defense') {
-    positiveMarkers = playersMarkers;
-    negativeMarkers = computerMarkers;
-  } else {
-    positiveMarkers = computerMarkers;
-    negativeMarkers = playersMarkers;
-  }
-
-  //get the potential winning line if any
-  let potnWinLine = Object.keys(DANGEROUS_COMB).find((winningLine) => {
-    let curntDangCombs = DANGEROUS_COMB[winningLine];
-    //only return a potential winning line if
-    //computer don't have a marker in that line and
-    //user has at least two marker in that line
-    return !(negativeMarkers.split('').some((square) => winningLine.includes(square))) &&
-             curntDangCombs.some(comb => positiveMarkers.includes(comb));
-  });
-
-  //return square to block
-  if (potnWinLine) {
-    return potnWinLine.split('').find((square) => !(playersMarkers.includes(square)));
-  } else {
-    return undefined;
-  }
-}
-
-function computerChoosesSquare(board) {
-  //get player's marker
-  let playersMarkers = getUserMarkers(board, USER_NAMES.PLAYER1);
-  let computerMarkers = getUserMarkers(board, USER_NAMES.COMPUTER);
-  //play defense if necessary else try to play offense or just play randomly
-  let squareToMark = (getCriticalBlock(playersMarkers, computerMarkers, 'defense') ||
-                getCriticalBlock(playersMarkers, computerMarkers, 'offense' ||
-                getRandOpenSquare(board)));
-  board[squareToMark] = MARKERS[USER_NAMES.COMPUTER];
-}
-
 function someoneWon(board) {
   return detectWinner(board);
 }
 
-// eslint-disable-next-line max-lines-per-function
 function detectWinner(board) {
-  for (let line = 0; line < winningLines.length; line++) {
-    let [ sq1, sq2, sq3 ] = winningLines[line];
-
+  for (let line = 0; line < WINNING_LINES.length; line++) {
+    let [ sq1, sq2, sq3 ] = WINNING_LINES[line];
     if (
-    // eslint-disable-next-line indent
-        board[sq1] === MARKERS[USER_NAMES.PLAYER1] &&
-        board[sq2] === MARKERS[USER_NAMES.PLAYER1] &&
-        board[sq3] === MARKERS[USER_NAMES.PLAYER1]
+      board[sq1] === MARKERS[USERS.PLAYER1.NAME] &&
+      board[sq2] === MARKERS[USERS.PLAYER1.NAME] &&
+      board[sq3] === MARKERS[USERS.PLAYER1.NAME]
     ) {
-      return USER_NAMES.PLAYER1;
+      return USERS.PLAYER1.NAME;
     } else if (
-      // eslint-disable-next-line indent
-        board[sq1] === MARKERS[USER_NAMES.COMPUTER] &&
-        board[sq2] === MARKERS[USER_NAMES.COMPUTER] &&
-        board[sq3] === MARKERS[USER_NAMES.COMPUTER]
+      board[sq1] === MARKERS[USERS.COMPUTER.NAME] &&
+      board[sq2] === MARKERS[USERS.COMPUTER.NAME] &&
+      board[sq3] === MARKERS[USERS.COMPUTER.NAME]
     ) {
-      return USER_NAMES.COMPUTER;
+      return USERS.COMPUTER.NAME;
     }
   }
-
   return null;
 }
 
-//set dangerous combination for player
+function addScore(player) {
+  scores[player] += 1;
+}
+
+function displayScores() {
+  prompt('Current Score is:');
+  Object.keys(scores).forEach((player) => {
+    console.log(`${player} score: ${scores[player]}`);
+  });
+}
+
+function isWonMatch() {
+  return Object.keys(scores).some(player => scores[player] === GAME_TO_WIN);
+}
+
+function getMatchWinner() {
+  return Object.keys(scores).find(player => scores[player] === GAME_TO_WIN);
+}
+
+function displayMatchWonMessage(winner) {
+  prompt(`${winner} has won 5 games and thus have won the match!`);
+  prompt('The game is now exiting');
+}
+
+prompt('Welcome to Tic Tac Toe!');
+
+//set dangerous combinations for each winning line
 getDangerousComb();
 
 //play multiple game
 while (true) {
   let board = initializeBoard();
+  let currentPlayer;
 
   //play single game
   while (true) {
     displayBoard(board);
-
-    playerChoosesSquare(board);
-    if (someoneWon(board) || boardFull(board)) break;
-
-    computerChoosesSquare(board);
+    currentPlayer = getCurrentPlayer();
+    chooseSquare(board, currentPlayer);
+    setNextPlayerTurn(currentPlayer);
     if (someoneWon(board) || boardFull(board)) break;
   }
 
