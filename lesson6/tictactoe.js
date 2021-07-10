@@ -1,7 +1,7 @@
 const readline = require("readline-sync");
-const MARKERS = {INITIAL_MARKER : ' ', HUMAN1 : 'X', COMPUTER: 'O'};
-const USERS = {COMPUTER : {NAME : 'COMPUTER', currentTurn : false, turn : 2},
-  PLAYER1 : {NAME : 'HUMAN1', currentTurn : false, turn : 1}};
+const MARKERS = { INITIAL_MARKER : ' ', HUMAN1 : 'X', COMPUTER: 'O' };
+const USERS = { COMPUTER : {NAME : 'COMPUTER', currentTurn : false, turn : 2 },
+  PLAYER1 : { NAME : 'HUMAN1', currentTurn : false, turn : 1 } };
 
 //Scores and Strategy
 let scores = {HUMAN1 : 0, COMPUTER : 0};
@@ -14,17 +14,13 @@ const WINNING_LINES = [
   [1, 5, 9], [3, 5, 7]             // diagonals
 ];
 
-const DANGEROUS_COMB = {};
+const DANGEROUS_COMB = { };
 
 function prompt(msg) {
   console.log(`=> ${msg}`);
 }
 
 function getDangerousComb() {
-  //create dangerousComb for each winningLine
-  //values are 'first element + second', 'second + third', 'first + third'
-  //Example: [1,2,3] ---> '123' : ['12', '23', '13']
-  //note how numbers are sorted in ascending order in each combination
   let combination = [[0, 1], [0, 2], [1, 2]];
   WINNING_LINES.forEach((line) => {
     DANGEROUS_COMB[line.join('')] = combination.map((comb) => String(line[comb[0]]) + String(line[comb[1]]));
@@ -43,7 +39,6 @@ function initializeBoard() {
 
 function displayBoard(board) {
   console.clear();
-
   console.log(`You are ${MARKERS[USERS.PLAYER1.NAME]}. Computer is ${MARKERS[USERS.COMPUTER.NAME]}`);
 
   console.log('');
@@ -125,7 +120,6 @@ function playerChoosesSquare(board) {
   let square;
 
   while (true) {
-    //prompt(`Choose a square (${emptySquares(board).join(', ')}):`);
     prompt(`Choose a square (${joinOr(emptySquares(board))}):`);
     square = readline.question().trim();
     if (emptySquares(board).includes(square)) break;
@@ -158,8 +152,6 @@ function getUserMarkers(board, userName) {
   return userMarkers.sort((a, b) => Number(a) - Number(b)).join('');
 }
 
-//get the square we need to mark for making computer win or block player
-//if no such square exist then return undefined
 function getCriticalSquare(playerSquares, computerSquares) {
   let compWinLine = getCompWinLine(playerSquares, computerSquares);
   let playerWinLine = getPlayerWinLine(playerSquares, computerSquares);
@@ -178,8 +170,11 @@ function getCriticalSquare(playerSquares, computerSquares) {
 function getCompWinLine(playerSquares, computerSquares) {
   let potnWinLine = Object.keys(DANGEROUS_COMB).find((winningLine) => {
     let curntDangCombs = DANGEROUS_COMB[winningLine];
-    return !(playerSquares.split('').some((square) => winningLine.includes(square))) &&
-             curntDangCombs.some(comb => computerSquares.includes(comb));
+    let playerMarkers = playerSquares.split('').some((square) => winningLine.includes(square));
+    let twoComputerMarkers = curntDangCombs.some(comb => {
+      return computerSquares.includes(comb);
+    });
+    return !playerMarkers && twoComputerMarkers;
   });
   return potnWinLine;
 }
@@ -189,13 +184,15 @@ function getCompWinLine(playerSquares, computerSquares) {
 function getPlayerWinLine(playerSquares, computerSquares) {
   let potnWinLine = Object.keys(DANGEROUS_COMB).find((winningLine) => {
     let curntDangCombs = DANGEROUS_COMB[winningLine];
-    return !(computerSquares.split('').some((square) => winningLine.includes(square))) &&
-             curntDangCombs.some(comb => playerSquares.includes(comb));
+    let computerMarkers = (computerSquares.split('').some((square) => winningLine.includes(square)));
+    let twoPlayerMarkers = curntDangCombs.some(comb => {
+      return playerSquares.includes(comb);
+    });
+    return !computerMarkers && twoPlayerMarkers;
   });
   return potnWinLine;
 }
 
-//return the square computer should play to win the game
 function getCompWinSquare(winningLine, computerSquares) {
   return winningLine.split('').find((square) => !(computerSquares.includes(square)));
 }
@@ -261,13 +258,29 @@ function displayMatchWonMessage(winner) {
   prompt('The game is now exiting');
 }
 
+function playAnotherGame() {
+  while (true) {
+    prompt('Play again? (y/n) ');
+    let answer = readline.question().trim().toLowerCase();
+    if (answer === 'y') {
+      return true;
+    } else if (answer === 'n') {
+      return false;
+    } else {
+      console.log('Input is invalid. Enter y/n');
+    }
+  }
+}
+
 prompt('Welcome to Tic Tac Toe!');
 
 //set dangerous combinations for each winning line
 getDangerousComb();
 
 //play multiple game
+let roundCount = 0;
 while (true) {
+  roundCount += 1;
   let board = initializeBoard();
   let currentPlayer;
 
@@ -290,16 +303,14 @@ while (true) {
     prompt("It's a tie!");
   }
 
-  //when someone won match
   displayScores();
+  console.log(`This is the end of Round ${roundCount}`);
   if (isWonMatch()) {
     displayMatchWonMessage(getMatchWinner());
     break;
   }
 
-  prompt('Play again?');
-  let answer = readline.question().toLowerCase()[0];
-  if (answer !== 'y') break;
+  if (!playAnotherGame()) break;
 }
 
 prompt('Thanks for playing Tic Tac Toe!');
