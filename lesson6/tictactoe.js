@@ -1,7 +1,7 @@
 const readline = require("readline-sync");
 const MARKERS = { INITIAL_MARKER : ' ', HUMAN1 : 'X', COMPUTER: 'O' };
-const USERS = { COMPUTER : {NAME : 'COMPUTER', currentTurn : false, turn : 2 },
-  PLAYER1 : { NAME : 'HUMAN1', currentTurn : false, turn : 1 } };
+const USERS = ['HUMAN1', 'COMPUTER'];
+let currentPlayer = USERS[0];
 
 //Scores and Strategy
 let scores = {HUMAN1 : 0, COMPUTER : 0};
@@ -39,7 +39,7 @@ function initializeBoard() {
 
 function displayBoard(board) {
   console.clear();
-  console.log(`You are ${MARKERS[USERS.PLAYER1.NAME]}. Computer is ${MARKERS[USERS.COMPUTER.NAME]}`);
+  console.log(`You are ${MARKERS[USERS[0]]}. Computer is ${MARKERS[USERS[1]]}`);
 
   console.log('');
   console.log('     |     |');
@@ -77,39 +77,17 @@ function emptySquares(board) {
   return Object.keys(board).filter(sq => board[sq] === MARKERS.INITIAL_MARKER);
 }
 
-function getCurrentPlayer() {
-  /*
-  //Get the first player whose currentTurn = true
-  //if can't find such a player then
-    //currentPlayer = player with turn = 1
-  */
-  return Object.keys(USERS).find(user => USERS[user]['currentTurn'] === true) ||
-        Object.keys(USERS).find(user => USERS[user]['turn'] === 1);
+function alternatePlayer() {
+  let currentPlayerIndex = USERS.indexOf(currentPlayer);
+  if (currentPlayerIndex === (USERS.length - 1)) {
+    currentPlayer = USERS[0];
+  } else {
+    currentPlayer = USERS[currentPlayerIndex + 1];
+  }
 }
 
-function setNextPlayerTurn(currentPlayer) {
-  /*
-  // Get next player
-    //next player is the one whose turn is 1 greater than currentPlayer
-    //or if that does not exist then whose turn is 1
-  //current player's currentTurn = false
-  //set the next player currentTurn = on
-*/
-  let nextTurnPlayer = Object.keys(USERS).find((user) => {
-    return USERS[user]['turn'] === (USERS[currentPlayer]['turn'] + 1);
-  });
-
-  let playerWithTurn1 = Object.keys(USERS).find((user) => {
-    return USERS[user]['turn'] === 1;
-  });
-
-  let nextPlayer = nextTurnPlayer || playerWithTurn1;
-  USERS[currentPlayer]['currentTurn'] = false;
-  USERS[nextPlayer]['currentTurn'] = true;
-}
-
-function chooseSquare(board, currentPlayer) {
-  if (USERS[currentPlayer] === USERS.PLAYER1) {
+function chooseSquare(board) {
+  if (currentPlayer === USERS[0]) {
     playerChoosesSquare(board);
   } else {
     computerChoosesSquare(board);
@@ -127,16 +105,16 @@ function playerChoosesSquare(board) {
     prompt("Sorry, that's not a valid choice.");
   }
 
-  board[square] = MARKERS[USERS.PLAYER1.NAME];
+  board[square] = MARKERS[USERS[0]];
 }
 
 function computerChoosesSquare(board) {
-  let playerSquares = getUserMarkers(board, USERS.PLAYER1.NAME);
-  let computerSquares = getUserMarkers(board, USERS.COMPUTER.NAME);
+  let playerSquares = getUserMarkers(board, USERS[0]);
+  let computerSquares = getUserMarkers(board, USERS[1]);
   //play offense/defense or play randomly
   let squareToMark = getCriticalSquare(playerSquares, computerSquares) ||
                      getRandOpenSquare(board);
-  board[squareToMark] = MARKERS[USERS.COMPUTER.NAME];
+  board[squareToMark] = MARKERS[USERS[1]];
 }
 
 function getUserMarkers(board, userName) {
@@ -215,23 +193,21 @@ function someoneWon(board) {
 }
 
 function detectWinner(board) {
-  for (let line = 0; line < WINNING_LINES.length; line++) {
-    let [ sq1, sq2, sq3 ] = WINNING_LINES[line];
-    if (
-      board[sq1] === MARKERS[USERS.PLAYER1.NAME] &&
-      board[sq2] === MARKERS[USERS.PLAYER1.NAME] &&
-      board[sq3] === MARKERS[USERS.PLAYER1.NAME]
-    ) {
-      return USERS.PLAYER1.NAME;
-    } else if (
-      board[sq1] === MARKERS[USERS.COMPUTER.NAME] &&
-      board[sq2] === MARKERS[USERS.COMPUTER.NAME] &&
-      board[sq3] === MARKERS[USERS.COMPUTER.NAME]
-    ) {
-      return USERS.COMPUTER.NAME;
-    }
+  let hasPlayerWon = WINNING_LINES.some(line => {
+    return line.every(sq => board[sq] === MARKERS[USERS[0]]);
+  });
+
+  let hasCompWon = WINNING_LINES.some(line => {
+    return line.every(sq => board[sq] === MARKERS[USERS[1]]);
+  });
+
+  if (hasPlayerWon) {
+    return USERS[0];
+  } else if (hasCompWon) {
+    return USERS[1];
+  } else {
+    return null;
   }
-  return null;
 }
 
 function addScore(player) {
@@ -282,14 +258,12 @@ let roundCount = 0;
 while (true) {
   roundCount += 1;
   let board = initializeBoard();
-  let currentPlayer;
 
   //play single game
   while (true) {
     displayBoard(board);
-    currentPlayer = getCurrentPlayer();
     chooseSquare(board, currentPlayer);
-    setNextPlayerTurn(currentPlayer);
+    alternatePlayer();
     if (someoneWon(board) || boardFull(board)) break;
   }
 

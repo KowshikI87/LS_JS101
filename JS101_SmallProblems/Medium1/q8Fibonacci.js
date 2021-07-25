@@ -1,16 +1,16 @@
-memorization = {}
+let memorization = {};
 function fibonacci(n) {
   if (n <= 2) {
     return 1;
-  } 
-  //else: if we have it in memory then return that. Otherwise calculate it and store in memory
+  }
+  //else: if we have it in memory then return that.
+  //Otherwise calculate it and store in memory
   if (memorization[n]) {
     return memorization[n];
   } else {
-    memorization[n] = fibonacci(n - 2) + fibonacci(n - 1)
+    memorization[n] = fibonacci(n - 2) + fibonacci(n - 1);
     return memorization[n];
   }
-  
 }
 
 console.log(fibonacci(5));        //5
